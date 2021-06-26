@@ -213,11 +213,11 @@ Combine worksheet1 and worksheet 2 and worksheet3 together and allocate their lo
 
 ### 5.2	Observation
 
-1)From 2019-2020, Only China and Hong Kong have positive merchandise trade balance, which can be regarded as Export Countries, America has negative merchandise trade value in 2019 but its exports outweigh imports in 2020. Other countries have negative merchandise trade value in both two years.
+1) From 2019-2020, Only China and Hong Kong have positive merchandise trade balance, which can be regarded as Export Countries, America has negative merchandise trade value in 2019 but its exports outweigh imports in 2020. Other countries have negative merchandise trade value in both two years.
 
-2)From 2019 to 2020, Japan has the most stable growth rate, which is nearly 5%, followed by Taiwan. Malaysia experience most drastic change of merchandise trade balance in these two years.
+2) From 2019 to 2020, Japan has the most stable growth rate, which is nearly 5%, followed by Taiwan. Malaysia experience most drastic change of merchandise trade balance in these two years.
 
-3)Mainland China has both the highest import value and highest export value compared with other countries and districts . Hong Kong has the lowest income values compared with those of other countries and districts.
+3) Mainland China has both the highest import value and highest export value compared with other countries and districts . Hong Kong has the lowest income values compared with those of other countries and districts.
 
 4) Only Malaysia and Taiwan experienced decline in merchandise trade value from 2019-2020, other countries grows well merchandise trade in these two years.
 
