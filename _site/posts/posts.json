@@ -1,5 +1,22 @@
 [
   {
+    "path": "posts/2021-07-13-assignment/",
+    "title": "Assignment",
+    "description": "This assignment is aim to solve the problems of for Mini Challenge 2",
+    "author": [
+      {
+        "name": "LI NAN",
+        "url": "https://www.linkedin.com/in/li-nan-63b9251a6/"
+      }
+    ],
+    "date": "2021-07-12",
+    "categories": [],
+    "contents": "\r\n\r\nContents\r\n1.Data Preparation1.1 Global Settings\r\n1.2 R Packages Installation\r\n\r\n\r\n\r\n#TOC {\r\n  color: #708090;\r\n  font-family: Calibri;\r\n  font-size: 16px; \r\n  border-color: #708090;\r\n}\r\n#header {\r\n  color: #FF4500;\r\n  background-color: #F5F5F5;\r\n  opacity: 0.6;\r\n  font-family: Calibri;\r\n  font-size: 24px;\r\n}\r\nbody {\r\n  color: #708090;\r\n  font-family: Calibri;\r\n  background-color: #F5F5F5;\r\n}\r\npre {\r\n  color: #708090;\r\n  background-color: #F8F8FF;\r\n}\r\n1.Data Preparation\r\n1.1 Global Settings\r\nThe global settings of R code chunks in this post is set as follows.\r\n1.2 R Packages Installation\r\nThe following code input is to prepare for R Packages Installation.\r\n\r\n\r\npackages = c('DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr')\r\nfor(p in packages){\r\n  if(!require(p, character.only = T)){\r\n    install.packages(p)\r\n  }\r\n  library(p, character.only = T)\r\n}\r\n\r\n\r\n\r\n\r\n\r\n\r\n",
+    "preview": {},
+    "last_modified": "2021-07-13T23:30:46+08:00",
+    "input_file": "assignment.utf8.md"
+  },
+  {
     "path": "posts/welcome/",
     "title": "Welcome to My Blog",
     "description": "Welcome to our new blog, My Blog. We hope you enjoy \nreading what we have to say!",

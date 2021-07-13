@@ -1,0 +1,78 @@
+---
+title: "Assignment"
+description: |
+  This assignment is aim to solve the problems of for Mini Challenge 2
+author:
+  - name: LI NAN
+    url: https://www.linkedin.com/in/li-nan-63b9251a6/
+date: 07-12-2021
+output:
+  distill::distill_article:
+    toc: true
+    toc_depth: 3
+    self_contained: false
+  html_document:
+    toc: true
+    toc_float: 
+      collapsed: false
+      smooth_scroll: true
+    toc_depth: 3
+---
+<style>
+#TOC {
+  color: #708090;
+  font-family: Calibri;
+  font-size: 16px; 
+  border-color: #708090;
+}
+#header {
+  color: #FF4500;
+  background-color: #F5F5F5;
+  opacity: 0.6;
+  font-family: Calibri;
+  font-size: 24px;
+}
+body {
+  color: #708090;
+  font-family: Calibri;
+  background-color: #F5F5F5;
+}
+pre {
+  color: #708090;
+  background-color: #F8F8FF;
+}
+</style>
+
+
+## 1.Data Preparation
+
+### 1.1 Global Settings
+
+The global settings of R code chunks in this post is set as follows.
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(fig.retina = 3,
+                      echo = TRUE,
+                      eval = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+```
+
+### 1.2 R Packages Installation
+
+The following code input is to prepare for R Packages Installation.
+
+```{r}
+packages = c('DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr')
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+
+```
+
+
+
