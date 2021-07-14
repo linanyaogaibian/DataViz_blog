@@ -10,45 +10,16 @@ output:
   distill::distill_article:
     toc: true
     toc_depth: 3
-    self_contained: false
-  html_document:
-    toc: true
-    toc_float: 
-      collapsed: false
-      smooth_scroll: true
-    toc_depth: 3
----
-<style>
-#TOC {
-  color: #708090;
-  font-family: Calibri;
-  font-size: 16px; 
-  border-color: #708090;
-}
-#header {
-  color: #FF4500;
-  background-color: #F5F5F5;
-  opacity: 0.6;
-  font-family: Calibri;
-  font-size: 24px;
-}
-body {
-  color: #708090;
-  font-family: Calibri;
-  background-color: #F5F5F5;
-}
-pre {
-  color: #708090;
-  background-color: #F8F8FF;
-}
-</style>
 
+
+
+---
 
 ## 1.Data Preparation
 
 ### 1.1 Global Settings
 
-The global settings of R code chunks in this post is set as follows.
+The global settings of R code chunks in this post is set as follows. 
 
 ```{r setup, include=FALSE}
 options(htmltools.dir.version = FALSE)
@@ -75,5 +46,14 @@ for(p in packages){
 ```
 
 ### 1.3 Data Import
+The following code is to import raw data sets from [<font size="3"  color="blue">*Mini Challenge2*</font>](https://vast-challenge.github.io/2021/MC2.html)("*car-assignment.csv*","*cc_data.csv*","*gps.csv*","*loyalty_data.csv*").
 
+```{r}
+credit_debit <- read_csv("data/cc_data.csv")
+loyalty_data <- read_csv("data/loyalty_data.csv")
+car_assignment <- read_csv("data/car_assignments.csv")
+GPS <- read_csv("data/gps.csv")
+glimpse(credit_debit)
+
+```
 
