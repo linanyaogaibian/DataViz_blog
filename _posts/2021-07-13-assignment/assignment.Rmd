@@ -56,6 +56,7 @@ GPS <- read_csv("data/gps.csv")
 glimpse(credit_debit)
 glimpse(loyalty_data)
 head(loyalty_data)
+head(credit_debit)
 ```
 ## 2.Tasks and Questions for Mini-Challenge2
 
@@ -66,30 +67,46 @@ Using just the credit and loyalty card data, identify the most popular locations
 
 ### 2.2 Data Preparation for Q1
 
+
 After glimpsing data structure of credit and loyalty card data, the heat map is a good way to visualize the most population locations and its population time.To create this graph,the data aggregation of loyalty card is needed.
 
 ```{r}
 loyalty_data$count_event=1
+credit_debit$count_event=1
 
 aggregate_dataset <- loyalty_data %>% 
     group_by(timestamp,location) %>% 
     summarize(Frequency = sum(count_event))
 head(aggregate_dataset)
+
+credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
+aggregate_cc <- credit_debit %>% 
+    group_by(timestamp,location) %>% 
+    summarize(Frequency = sum(count_event))
+head(aggregate_cc)
+
+
 ```
 **Adjustment of Date Type and create a new column named"Day"**
 ```{r}
 aggregate_dataset$timestamp <- as.Date(aggregate_dataset$timestamp, "%m/%d/%Y")
+
 aggregate_dataset$Day <- format(aggregate_dataset$timestamp, format="%d")
+aggregate_cc$Day <- format(aggregate_cc$timestamp, format="%d")
 head(aggregate_dataset)
+head(aggregate_cc)
 ```
 **new column: text for tooltip**
 ```{r}
 aggregate_dataset <- aggregate_dataset %>%
   mutate(text = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency: ",Frequency))
+
+aggregate_cc <- aggregate_cc %>%
+  mutate(text2 = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency: ",Frequency))
 ```
 
 
-**Heat map**
+**Heat map for loyalty card**
 ```{r,fig.height=6,fig.width=10}
 p <- ggplot(data = aggregate_dataset, aes(x=Day, y=location,fill=Frequency,text=text)) + 
   geom_tile() +
@@ -101,7 +118,28 @@ p <- p + theme(axis.text.y = element_text(size = 8))
 ggplotly(p, tooltip="text")
 ```
 
-**Create Loyalty Card Data Table**
-```{r,fig.height=20}
-DT::datatable(aggregate_dataset)
+**Heat map for credit_debit card**
+```{r,fig.height=6,fig.width=10}
+z <- ggplot(data = aggregate_cc, aes(x=Day, y=location,fill=Frequency,text=text2)) + 
+  geom_tile() +
+  scale_fill_gradient(low="light yellow", high="red") +
+  theme_ipsum()
+
+z <- z + theme(axis.text.y = element_text(size = 8))
+
+ggplotly(z, tooltip="text2")
+```
+
+
+The following tables also show the result of the most popular location in each day of Jan-2014 based on loyalty data and credit_debit data.From the data tables,we can know that Brew've Been Served and Katerina's Cafe appear frequently in this table,showing that they are the most popular places based on loyalyty data.
+
+
+```{r}
+
+aggregate_dataset %>% group_by(Day) %>% slice(which.max(Frequency))
+```
+
+```{r}
+
+aggregate_cc %>% group_by(Day) %>% slice(which.max(Frequency))
 ```
