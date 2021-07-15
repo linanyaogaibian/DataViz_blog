@@ -35,7 +35,7 @@ knitr::opts_chunk$set(fig.retina = 3,
 The following code input is to prepare for R Packages Installation.
 
 ```{r}
-packages = c('DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr')
+packages = c('DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes')
 for(p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -54,6 +54,54 @@ loyalty_data <- read_csv("data/loyalty_data.csv")
 car_assignment <- read_csv("data/car_assignments.csv")
 GPS <- read_csv("data/gps.csv")
 glimpse(credit_debit)
+glimpse(loyalty_data)
+head(loyalty_data)
+```
+## 2.Tasks and Questions for Mini-Challenge2
 
+### 2.1 Q1 Intruoduction
+
+Using just the credit and loyalty card data, identify the most popular locations, and when they are popular. What anomalies do you see? What corrections would you recommend to correct these anomalies?
+
+
+### 2.2 Data Preparation for Q1
+
+After glimpsing data structure of credit and loyalty card data, the heat map is a good way to visualize the most population locations and its population time.To create this graph,the data aggregation of loyalty card is needed.
+
+```{r}
+loyalty_data$count_event=1
+
+aggregate_dataset <- loyalty_data %>% 
+    group_by(timestamp,location) %>% 
+    summarize(Frequency = sum(count_event))
+head(aggregate_dataset)
+```
+**Adjustment of Date Type and create a new column named"Day"**
+```{r}
+aggregate_dataset$timestamp <- as.Date(aggregate_dataset$timestamp, "%m/%d/%Y")
+aggregate_dataset$Day <- format(aggregate_dataset$timestamp, format="%d")
+head(aggregate_dataset)
+```
+**new column: text for tooltip**
+```{r}
+aggregate_dataset <- aggregate_dataset %>%
+  mutate(text = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency: ",Frequency))
 ```
 
+
+**Heat map**
+```{r,fig.height=6,fig.width=10}
+p <- ggplot(data = aggregate_dataset, aes(x=Day, y=location,fill=Frequency,text=text)) + 
+  geom_tile() +
+  scale_fill_gradient(low="light blue", high="dark blue") +
+  theme_ipsum()
+
+p <- p + theme(axis.text.y = element_text(size = 8))
+
+ggplotly(p, tooltip="text")
+```
+
+**Create Loyalty Card Data Table**
+```{r,fig.height=20}
+DT::datatable(aggregate_dataset)
+```
