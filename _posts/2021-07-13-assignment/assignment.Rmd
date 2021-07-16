@@ -65,7 +65,13 @@ head(credit_debit)
 Using just the credit and loyalty card data, identify the most popular locations, and when they are popular. What anomalies do you see? What corrections would you recommend to correct these anomalies?
 
 
-### 2.2 Data Preparation for Q1
+#### 2.2.1 Data Preparation for Q1
+
+
+#### 2.2.2 Data Exploration
+
+**Comparison of total amount between credit/debit card and loyalty card**
+
 
 
 After glimpsing data structure of credit and loyalty card data, the heat map is a good way to visualize the most population locations and its population time.To create this graph,the data aggregation of loyalty card is needed.
@@ -76,13 +82,13 @@ credit_debit$count_event=1
 
 aggregate_dataset <- loyalty_data %>% 
     group_by(timestamp,location) %>% 
-    summarize(Frequency = sum(count_event))
+    summarize(Frequency = sum(count_event),Money_loyalty=sum(price))
 head(aggregate_dataset)
 
 credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
 aggregate_cc <- credit_debit %>% 
     group_by(timestamp,location) %>% 
-    summarize(Frequency = sum(count_event))
+    summarize(Frequency = sum(count_event),Money_cd=sum(price))
 head(aggregate_cc)
 
 
@@ -93,9 +99,14 @@ aggregate_dataset$timestamp <- as.Date(aggregate_dataset$timestamp, "%m/%d/%Y")
 
 aggregate_dataset$Day <- format(aggregate_dataset$timestamp, format="%d")
 aggregate_cc$Day <- format(aggregate_cc$timestamp, format="%d")
+```
+
+
+```{r}
 head(aggregate_dataset)
 head(aggregate_cc)
 ```
+
 **new column: text for tooltip**
 ```{r}
 aggregate_dataset <- aggregate_dataset %>%
@@ -106,11 +117,11 @@ aggregate_cc <- aggregate_cc %>%
 ```
 
 
-**Heat map for loyalty card**
+**Heat map for loyalty card usage frequency per day**
 ```{r,fig.height=6,fig.width=10}
 p <- ggplot(data = aggregate_dataset, aes(x=Day, y=location,fill=Frequency,text=text)) + 
   geom_tile() +
-  scale_fill_gradient(low="light blue", high="dark blue") +
+  scale_fill_gradient(low="light yellow", high="dark blue") +
   theme_ipsum()
 
 p <- p + theme(axis.text.y = element_text(size = 8))
@@ -118,11 +129,11 @@ p <- p + theme(axis.text.y = element_text(size = 8))
 ggplotly(p, tooltip="text")
 ```
 
-**Heat map for credit_debit card**
+**Heat map for credit_debit card usage frequency per day**
 ```{r,fig.height=6,fig.width=10}
 z <- ggplot(data = aggregate_cc, aes(x=Day, y=location,fill=Frequency,text=text2)) + 
   geom_tile() +
-  scale_fill_gradient(low="light yellow", high="red") +
+  scale_fill_gradient(low="light yellow", high="dark blue") +
   theme_ipsum()
 
 z <- z + theme(axis.text.y = element_text(size = 8))
@@ -130,16 +141,33 @@ z <- z + theme(axis.text.y = element_text(size = 8))
 ggplotly(z, tooltip="text2")
 ```
 
+#### 2.2.3 Infer and Analysis
 
-The following tables also show the result of the most popular location in each day of Jan-2014 based on loyalty data and credit_debit data.From the data tables,we can know that Brew've Been Served and Katerina's Cafe appear frequently in this table,showing that they are the most popular places based on loyalyty data.
+Based on heat maps which show the phenomena of loyalty card and credit_debit card usage, we can infer that the most popular places from Ja.06 to Jan.19 are Brew've Been Served and Katerina's Cafe,since the color of heatmap are the most dark in these two places.
+However,from the tooltips, we can also see some difference between the frequencies of these two types of card usage, which are abnormal. So the next step is to build up new data frame to see the difference of cost record and frequency difference between these two types of cards more obviously.
 
 
 ```{r}
-
-aggregate_dataset %>% group_by(Day) %>% slice(which.max(Frequency))
+loyalty_money <- aggregate_dataset %>% group_by(Day,location) %>% summarise(max_loyal=max(Money_loyalty),freq_loyal=sum(Frequency))
+head(loyalty_money)
+count(loyalty_money)
 ```
 
 ```{r}
+cc_money <- aggregate_cc %>% group_by(Day,location) %>% summarise(max_cc = max(Money_cd),freq_cc=sum(Frequency))
+head(cc_money)
+count(cc_money)
 
-aggregate_cc %>% group_by(Day) %>% slice(which.max(Frequency))
 ```
+From the new data frame shown, we can see that some records that can be matched,whose frequencies are equal and money can be matched, but some are not.
+And most abnormal situation is that,in one day,the money cost shown in loyalty card is lower than money cost in credit/debit card,but the frequencies of loyalty card in that day is higher than that of credit card in same place,which needs to be noticed.
+
+
+
+**Delete Duplicate columns(谨慎使用）**
+```{r}
+aggregate_cc= subset(aggregate_cc, select = -c(Day))
+aggregate_dataset= subset(aggregate_dataset, select = -c(Day))
+
+```
+
