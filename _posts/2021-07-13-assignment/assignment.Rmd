@@ -35,7 +35,7 @@ knitr::opts_chunk$set(fig.retina = 3,
 The following code input is to prepare for R Packages Installation.
 
 ```{r}
-packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes')
+packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap')
 for(p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -55,6 +55,7 @@ car_assignment <- read_csv("data/car_assignments.csv")
 GPS <- read_csv("data/gps.csv")
 glimpse(credit_debit)
 glimpse(loyalty_data)
+glimpse(GPS)
 head(loyalty_data)
 head(credit_debit)
 ```
@@ -167,12 +168,6 @@ And most abnormal situation is that,in one day,the money cost shown in loyalty c
 Compared with Heat map, do we have better ways to visual, how about design line chart based on time period for the differences of money....
 
 
-**Delete Duplicate columns(谨慎使用）**
-```{r}
-aggregate_cc= subset(aggregate_cc, select = -c(freq))
-aggregate_dataset= subset(aggregate_dataset, select = -c(Day))
-
-```
 
 ### 2.2 Q2 Intruoduction
 Add the vehicle data to your analysis of the credit and loyalty card data. How does your assessment of the anomalies in question 1 change based on this new data? What discrepancies between vehicle, credit, and loyalty card data do you find? Please limit your answer to 8 images and 500 words.
@@ -182,7 +177,7 @@ Add the vehicle data to your analysis of the credit and loyalty card data. How d
 First,"MC2-tourist.jpg" is imported for data preparation.
 
 ```{r}
-bgmap <- raster("Data/MC2-tourist.jpg")
+bgmap <- raster("Data/MC2-tourist.tif")
 bgmap
 ```
 
@@ -196,19 +191,21 @@ tm_rgb(bgmap, r = 1,g = 2,b = 3,
        interpolate = TRUE,
        max.value = 255)
 ```
+
 ```{r}
 Abila_st <- st_read(dsn = "Data/Geospatial",
                     layer = "Abila")
 
 ```
 
+```{r}
+glimpse(GPS)
+```
 
 
 ```{r}
-GPS$Timestamp <- date_time_parse(GPS$Timestamp,
-                zone = "",
-                format = "%m/%d/%Y %H:%M:%S")
-GPS$day <- as_factor(get_day(GPS$Timestamp))
+GPS$Timestamp <- strptime(GPS$Timestamp, "%m/%d/%Y %H:%M:%S")
+GPS$day <- as.factor(get_day(GPS$Timestamp))
 
 ```
 
@@ -217,8 +214,62 @@ GPS$id <- as_factor(GPS$id)
 ```
 
 ```{r}
+glimpse(GPS)
+
+```
+
+### 这一步起应该与老师有所不同 ###
+
+
+
+```{r}
 GPS_sf <- st_as_sf(GPS, 
                    coords = c("long", "lat"),
                        crs= 4326)
 GPS_sf
 ```
+
+```{r}
+gps_path <- GPS_sf %>%
+  group_by(id, day) %>%
+  summarize(m = mean(Timestamp), 
+            do_union=FALSE) %>%
+  st_cast("LINESTRING")
+gps_path
+```
+
+
+```{r}
+gps_path_selected <- gps_path %>%
+  filter(id==1)
+tmap_mode("view")
+tm_shape(bgmap) +
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(gps_path_selected) +
+  tm_lines()
+```
+
+
+```{r}
+m <- tm_shape(bgmap) +
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(gps_path) +
+  tm_lines() +
+  tm_facets(along = "id")
+tmap_animation(m, 
+               filename = "gif/drivers.gif",
+               delay=40)
+```
+
+
+
+
+
