@@ -56,8 +56,7 @@ GPS <- read_csv("data/gps.csv")
 glimpse(credit_debit)
 glimpse(loyalty_data)
 glimpse(GPS)
-head(loyalty_data)
-head(credit_debit)
+
 ```
 ## 2.Tasks and Questions for Mini-Challenge2
 
@@ -78,17 +77,17 @@ After glimpsing data structure of credit and loyalty card data, the heat map is 
 ```{r}
 loyalty_data$count_event=1
 credit_debit$count_event=1
-head(loyalty_data)
+
 aggregate_dataset <- loyalty_data %>% 
     group_by(timestamp,location) %>% 
     dplyr::summarize(Frequency = sum(count_event),Money_loyalty=sum(price))
-head(aggregate_dataset)
+
 
 credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
 aggregate_cc <- credit_debit %>% 
     group_by(timestamp,location) %>% 
     dplyr::summarize(Frequency = sum(count_event),Money_cd=sum(price))
-head(aggregate_cc)
+
 
 
 ```
@@ -101,10 +100,7 @@ aggregate_cc$Day <- format(aggregate_cc$timestamp, format="%d")
 ```
 
 
-```{r}
-head(aggregate_dataset)
-head(aggregate_cc)
-```
+
 
 **new column: text for tooltip**
 ```{r}
@@ -121,7 +117,7 @@ aggregate_cc <- aggregate_cc %>%
 ```{r,fig.height=6,fig.width=10}
 p <- ggplot(data = aggregate_dataset, aes(x=Day, y=location,fill=Frequency,text=text)) + 
   geom_tile() +
-  scale_fill_gradient(low="light yellow", high="dark blue") +
+  scale_fill_gradient(low="light BLUE", high="black") +
   theme_ipsum()
 
 p <- p + theme(axis.text.y = element_text(size = 8))
@@ -143,25 +139,55 @@ ggplotly(z, tooltip="text2")
 
 #### 2.1.3 Infer and Analysis
 
-Based on heat maps which show the phenomena of loyalty card and credit_debit card usage, we can infer that the most popular places from Ja.06 to Jan.19 are Brew've Been Served and Katerina's Cafe,since the color of heatmap are the most dark in these two places.
-However,from the tooltips, we can also see some difference between the frequencies of these two types of card usage, which are abnormal. So the next step is to build up new data frame to see the difference of cost record and frequency difference between these two types of cards more obviously.
+Based on two heat maps, we can infer that the most popular places from Ja.06 to Jan.19 are Brew've Been Served and Katerina's Cafe,since the color of heat maps are the most dark in these two places,but it is still not very obvious, we need to see more clearly.
+
+And from the tooltips, we can also see some difference between the frequencies of these two types of card usage, which are abnormal. 
+
+So the next step is to build up new data frame to see the difference of cost record and frequency difference between these two types of cards more obviously.
 
 
 ```{r}
 loyalty_money <- aggregate_dataset %>% group_by(Day,location) %>% dplyr::summarise(max_loyal=max(Money_loyalty),freq_loyal=sum(Frequency))
-head(aggregate_dataset)
-head(loyalty_money)
-dplyr::count(loyalty_money)
+
+cc_money <- aggregate_cc %>% group_by(Day,location) %>% dplyr::summarise(max_cc = max(Money_cd),freq_cc=sum(Frequency))
 ```
 
 ```{r}
-cc_money <- aggregate_cc %>% group_by(Day,location) %>% dplyr::summarise(max_cc = max(Money_cd),freq_cc=sum(Frequency))
-head(cc_money)
-dplyr::count(cc_money)
+
+
+Comparison <- full_join(cc_money, loyalty_money, by = c('Day','location'))
+Comparison[is.na(Comparison)] <- 0
+
+datatable(Comparison,rownames = FALSE)
+
 
 ```
-From the new data frame shown, we can see that some records that can be matched,whose frequencies are equal and money can be matched, but some are not.
-And most abnormal situation is that,in one day,the money cost shown in loyalty card is lower than money cost in credit/debit card,but the frequencies of loyalty card in that day is higher than that of credit card in same place,which needs to be noticed.
+
+```{r}
+
+
+
+Result1 <- Comparison  %>%
+dplyr::group_by(Day) %>%
+filter(freq_cc == max(freq_cc)) %>%
+arrange(desc(Day))
+
+datatable(Result1,rownames = FALSE)
+
+
+
+```
+
+
+From the new data frame "Result1", Now we can see that Katerina's Cafe is the most popular palce based on credit and debit card record.
+
+And we can also detect several anomalies based on these summary records.
+
+1.The frequency usage of credit_debit card does not equal to that of loyalty card.
+
+2.The money cost of credit_debit card does not equal to that of loyalty card.
+
+From these abnormal records, 
 
 
 **Another thoughts for Q1 Visualization**
@@ -241,7 +267,7 @@ gps_path
 
 ```{r}
 gps_path_selected <- gps_path %>%
-  filter(id==1)
+  filter(id==5)
 tmap_mode("view")
 tm_shape(bgmap) +
   tm_rgb(bgmap, r = 1,g = 2,b = 3,
@@ -254,20 +280,7 @@ tm_shape(bgmap) +
 ```
 
 
-```{r}
-m <- tm_shape(bgmap) +
-  tm_rgb(bgmap, r = 1,g = 2,b = 3,
-       alpha = NA,
-       saturation = 1,
-       interpolate = TRUE,
-       max.value = 255) +
-  tm_shape(gps_path) +
-  tm_lines() +
-  tm_facets(along = "id")
-tmap_animation(m, 
-               filename = "gif/drivers.gif",
-               delay=40)
-```
+
 
 
 
