@@ -6,10 +6,9 @@ author:
   - name: LI NAN
     url: https://www.linkedin.com/in/li-nan-63b9251a6/
 date: 07-12-2021
-output:
-  distill::distill_article:
-    toc: true
-    toc_depth: 3
+output: html_document
+runtime: shiny
+
 
 
 
@@ -35,7 +34,7 @@ knitr::opts_chunk$set(fig.retina = 3,
 The following code input is to prepare for R Packages Installation.
 
 ```{r}
-packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap')
+packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap','mapview','shiny')
 for(p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -53,9 +52,6 @@ credit_debit <- read_csv("data/cc_data.csv")
 loyalty_data <- read_csv("data/loyalty_data.csv")
 car_assignment <- read_csv("data/car_assignments.csv")
 GPS <- read_csv("data/gps.csv")
-glimpse(credit_debit)
-glimpse(loyalty_data)
-glimpse(GPS)
 
 ```
 ## 2.Tasks and Questions for Mini-Challenge2
@@ -72,7 +68,7 @@ Using just the credit and loyalty card data, identify the most popular locations
 
 
 
-After glimpsing data structure of credit and loyalty card data, the heat map is a good way to visualize the most population locations and its population time.To create this graph,the data aggregation of loyalty card is needed.
+To know which place is most populated and when it is populated, we need a data table to list the most populated places and its time.
 
 ```{r}
 loyalty_data$count_event=1
@@ -91,7 +87,8 @@ aggregate_cc <- credit_debit %>%
 
 
 ```
-**Adjustment of Date Type and create a new column named"Day"**
+
+**Adjustment of Date Type and create a new column named "Day"**
 ```{r}
 aggregate_dataset$timestamp <- as.Date(aggregate_dataset$timestamp, "%m/%d/%Y")
 
@@ -99,70 +96,32 @@ aggregate_dataset$Day <- format(aggregate_dataset$timestamp, format="%d")
 aggregate_cc$Day <- format(aggregate_cc$timestamp, format="%d")
 ```
 
-
-
-
-**new column: text for tooltip**
+**Aggregation of loyalty cost and credit_debit cost**
 ```{r}
-aggregate_dataset <- aggregate_dataset %>%
-  mutate(text = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency: ",Frequency))
+loyalty_money <- aggregate_dataset %>% group_by(Day,location) %>% dplyr::summarise(money_loyal=sum(Money_loyalty),freq_loyal=sum(Frequency))
 
-aggregate_cc <- aggregate_cc %>%
-  mutate(text2 = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency: ",Frequency))
+cc_money <- aggregate_cc %>% group_by(Day,location) %>% dplyr::summarise(money_cc = sum(Money_cd),freq_cc=sum(Frequency))
 ```
 
-#### 2.1.2 Data Visualization
-
-**Heat map for loyalty card usage frequency per day**
-```{r,fig.height=6,fig.width=10}
-p <- ggplot(data = aggregate_dataset, aes(x=Day, y=location,fill=Frequency,text=text)) + 
-  geom_tile() +
-  scale_fill_gradient(low="light BLUE", high="black") +
-  theme_ipsum()
-
-p <- p + theme(axis.text.y = element_text(size = 8))
-
-ggplotly(p, tooltip="text")
-```
-
-**Heat map for credit_debit card usage frequency per day**
-```{r,fig.height=6,fig.width=10}
-z <- ggplot(data = aggregate_cc, aes(x=Day, y=location,fill=Frequency,text=text2)) + 
-  geom_tile() +
-  scale_fill_gradient(low="light yellow", high="red") +
-  theme_ipsum()
-
-z <- z + theme(axis.text.y = element_text(size = 8))
-
-ggplotly(z, tooltip="text2")
-```
-
-#### 2.1.3 Infer and Analysis
-
-Based on two heat maps, we can infer that the most popular places from Ja.06 to Jan.19 are Brew've Been Served and Katerina's Cafe,since the color of heat maps are the most dark in these two places,but it is still not very obvious, we need to see more clearly.
-
-And from the tooltips, we can also see some difference between the frequencies of these two types of card usage, which are abnormal. 
-
-So the next step is to build up new data frame to see the difference of cost record and frequency difference between these two types of cards more obviously.
-
-
-```{r}
-loyalty_money <- aggregate_dataset %>% group_by(Day,location) %>% dplyr::summarise(max_loyal=max(Money_loyalty),freq_loyal=sum(Frequency))
-
-cc_money <- aggregate_cc %>% group_by(Day,location) %>% dplyr::summarise(max_cc = max(Money_cd),freq_cc=sum(Frequency))
-```
-
+**Table 2.1**Combination of loyalty_money and cc_money
 ```{r}
 
 
 Comparison <- full_join(cc_money, loyalty_money, by = c('Day','location'))
 Comparison[is.na(Comparison)] <- 0
+Comparison$Money_dif=Comparison$money_cc-Comparison$money_loyal
+Comparison$Freq_dif=Comparison$freq_cc-Comparison$freq_loyal
+
+Comparison<-Comparison%>%
+arrange(freq_cc)
 
 datatable(Comparison,rownames = FALSE)
 
 
 ```
+During data exploration, we can see there are five records that don't have any cost in credit card and debit card,but there are consumption records in loyalty card.
 
+**Table 2.2**Combination of loyalty_money and cc_money
 ```{r}
 
 
@@ -177,21 +136,66 @@ datatable(Result1,rownames = FALSE)
 
 
 ```
+From the new data frame "Result1", Now we can see that Katerina's Cafe is the most popular place based on data records from Day 6 to Day 19,which appears 6 times in 14 days records.
+
+To find out more anomalies from the data, we need more obvious data visualization.
+
+#### 2.1.2 Data Visualization
+
+**new column: text for tooltip**
+
+```{r}
+Comparison <- Comparison %>%
+  mutate(text = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Money Difference: ",Money_dif))
+
+Comparison <- Comparison%>%
+  mutate(text2 = paste0("Location: ", location, "\n", "Day of January: ", Day, "\n", "Frequency Difference: ",Freq_dif))
+```
 
 
-From the new data frame "Result1", Now we can see that Katerina's Cafe is the most popular palce based on credit and debit card record.
+**Heat map of money difference**
 
-And we can also detect several anomalies based on these summary records.
+```{r,fig.height=8,fig.width=10}
+p <- ggplot(data = Comparison, aes(x=Day, y=location,fill=Money_dif,text=text)) + 
+  geom_tile() +
+  geom_text(aes(label = Money_dif)) +
+  scale_fill_gradient(low="pink", high="blue") +
+  theme_ipsum()
 
-1.The frequency usage of credit_debit card does not equal to that of loyalty card.
+p <- p + theme(axis.text.y = element_text(size = 8))
 
-2.The money cost of credit_debit card does not equal to that of loyalty card.
+ggplotly(p, tooltip="text")
+```
 
-From these abnormal records, 
 
 
-**Another thoughts for Q1 Visualization**
-Compared with Heat map, do we have better ways to visual, how about design line chart based on time period for the differences of money....
+
+**Heat map of frequency difference**
+
+```{r,fig.height=6,fig.width=10}
+z <- ggplot(data = Comparison, aes(x=Day, y=location,fill=Freq_dif,text=text2)) + 
+  geom_tile() +
+  scale_fill_gradient(low="white", high="red") +
+  geom_text(aes(label = Freq_dif))+
+  theme_ipsum()
+
+z <- z + theme(axis.text.y = element_text(size = 8))
+
+ggplotly(z, tooltip="text2")
+```
+
+
+
+
+
+
+
+#### 2.1.3 Infer and Analysis
+we can see more anomalies comparing these two heat maps:
+1.In these two weeks,except Maximum Iron and steel which the differences in money and frequencies are both 0, other places in these two weeks all appear difference in some days either in frequency or money.
+2.In Frydos AutoSupply on Day 13, it has a large cost consumption of 9912.43 but the heat map of frequency difference shows 0 in frequency difference. It is quite strange.
+3.Another anomaly is from data table 4.1, there are five records showing that credit card and debit card consumption cost are 0, but loyalty card has consumption records .And among these 5 records, the most doubtful part is that Stewart and Sons Fabrication in Day 13 has 4071.95 cost,which is also needed to be noted.
+
 
 
 
@@ -199,6 +203,24 @@ Compared with Heat map, do we have better ways to visual, how about design line 
 Add the vehicle data to your analysis of the credit and loyalty card data. How does your assessment of the anomalies in question 1 change based on this new data? What discrepancies between vehicle, credit, and loyalty card data do you find? Please limit your answer to 8 images and 500 words.
 
 #### 2.2.1 Data Preparation for Q2
+To proceed in the Q2, we decide to have data manipulation for another two datasets GPS and car_Assignment
+
+**Data Manipulation for car_Assignment data set(Make up full name)**
+
+```{r}
+car_assignment <-car_assignment %>% unite("Full Name", LastName:FirstName, remove = FALSE)
+```
+
+```{r}
+car_assign2 = subset(car_assignment, select = -c(LastName,FirstName) )
+head(car_assign2)
+```
+
+**Data Manipulation for GPS data set**
+
+```{r}
+glimpse(GPS)
+```
 
 First,"MC2-tourist.jpg" is imported for data preparation.
 
@@ -224,9 +246,7 @@ Abila_st <- st_read(dsn = "Data/Geospatial",
 
 ```
 
-```{r}
-glimpse(GPS)
-```
+
 
 
 ```{r}
@@ -257,19 +277,36 @@ GPS_sf
 
 ```{r}
 gps_path <- GPS_sf %>%
-  group_by(id, day) %>%
+  group_by(id,day) %>%
   summarize(m = mean(Timestamp), 
             do_union=FALSE) %>%
   st_cast("LINESTRING")
 gps_path
 ```
 
+```{r} 
+p = npts(gps_path, by_feature = TRUE)
+gps_path2 <- cbind(gps_path, p)
+gps_path2 <- dplyr::filter(gps_path2,p!=1)
+```
+
+
+
+
+
 
 ```{r}
-gps_path_selected <- gps_path %>%
-  filter(id==5)
+head(gps_path2)
+head(gps_path)
+```
+
+```{r}
+gps_path_selected <- gps_path2 %>%
+  group_by(id,day)%>%
+  filter(day==6,id==1
+         )
 tmap_mode("view")
-tm_shape(bgmap) +
+tm_shape(bgmap) + 
   tm_rgb(bgmap, r = 1,g = 2,b = 3,
        alpha = NA,
        saturation = 1,
@@ -278,9 +315,6 @@ tm_shape(bgmap) +
   tm_shape(gps_path_selected) +
   tm_lines()
 ```
-
-
-
 
 
 
