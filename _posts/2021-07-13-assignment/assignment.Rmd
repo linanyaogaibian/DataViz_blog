@@ -36,7 +36,8 @@ knitr::opts_chunk$set(fig.retina = 3,
 The following code input is to prepare for R Packages Installation.
 
 ```{r}
-packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap','mapview','shiny')
+# !diagnostics off
+packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap','mapview')
 for(p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -73,6 +74,7 @@ Using just the credit and loyalty card data, identify the most popular locations
 To know which place is most populated and when it is populated, we need a data table to list the most populated places and its time.
 
 ```{r}
+# !diagnostics off
 loyalty_data$count_event=1
 credit_debit$count_event=1
 
@@ -201,7 +203,7 @@ ggplotly(z, tooltip="text2")
 we can see more anomalies comparing these two heat maps:
 1.In these two weeks,except Maximum Iron and steel which the differences in money and frequencies are both 0, other places in these two weeks all appear difference in some days either in frequency or money.
 
-2.In Frydos Auto Supply on Day 13, it has a large cost consumption of 9912.43 but the heat map of frequency difference shows 0 in frequency difference. It is quite strange.
+2.In Frydos Auto Supply on Day 13, it has a large cost consumption of 9912.43 but the heat map of frequency difference shows 0 in frequency difference. Through DT function to trace back the raw data, we can find that loyalty card shows total consumption is 542.79,and credit and debit cards show money spent is 10455.22,but both their number of consumption record is the same. It is quite strange.
 
 3.Another anomaly is from data table 4.1, there are five records showing that credit card and debit card consumption cost are 0, but loyalty card has consumption records .And among these 5 records, the most doubtful part is that Stewart and Sons Fabrication in Day 13 has 4071.95 cost,which is also needed to be noted.
 
@@ -332,7 +334,7 @@ Q3 Can you infer the owners of each credit card and loyalty card? What is your e
 So first of all, restructure GPS data set and build a box plot to find the appropriate time gap for parking car.
 
 ```{r}
-GPS_sf <- GPS_sf %>%
+GPS_track <- GPS_sf %>%
   dplyr::arrange(day, Timestamp) %>%
   group_by(id,day) %>%
   mutate(diff = Timestamp - lag(Timestamp),
@@ -342,8 +344,8 @@ GPS_sf <- GPS_sf %>%
 ```
 
 ```{r}
-GPS_sf$diff_mins <- round(GPS_sf$diff_mins ,2)
-GPS_sf <- GPS_sf %>%
+GPS_track$diff_mins <- round(GPS_sf$diff_mins ,2)
+GPS_track <- GPS_track %>%
   mutate_at(vars(diff_mins), ~replace_na(., 0))
 
 ```
@@ -352,28 +354,78 @@ GPS_sf <- GPS_sf %>%
 Now we want to justify which time gap is suitable for a parking time period, we build up a box plot based on dif_mins column.
 
 ```{r}
-boxplot1=ggplot(GPS_sf,aes(x="",y=GPS_sf$diff_mins))+geom_boxplot()+labs(title="Distribution of time gap")+theme_classic()
+boxplot1=ggplot(GPS_track,aes(x="",y=GPS_sf$diff_mins))+geom_boxplot()+labs(title="Distribution of time gap")+theme_classic()
 
 
 ggplotly(boxplot1)
 
 ```
-Since the boxplot shows that more than 3/4 data points of dif_mins column are 0, it is useless for us to have a justification for parking time. So we can only assume that data points whose dif_mins >3 are recognized as parking point. Based on this assumption, we build up a new column called parking point.
+Since the boxplot shows that more than 3/4 data points of dif_mins column are 0, it is useless for us to have a justification for parking time,but we also find one car's movement is unusual and its time gap is 1058.27min. So we can only assume that data points whose dif_mins >5 are recognized as parking point. Based on this assumption, we build up a new column called parking point.
 
 ```{r}
-GPS_sf$park_point <- 0
-GPS_sf$park_point[GPS_sf$diff_mins >3 ] <- 1
-GPS_sf$park_point[GPS_sf$diff_mins <=3 ] <- 0
+GPS_track$point <- 0
+GPS_track$point[GPS_sf$diff_mins >5 ] <- 1
+GPS_track$point[GPS_sf$diff_mins <=5 ] <- 0
 
 
 
 ```
 
+```{r}
+glimpse(GPS_track)
+```
+*Aggregate the points so that we can know one car driver in one day park its car in how many places?*
 
+```{r}
+Tracker_GPS <- 
+aggregate(GPS_track$point, by=list(id=GPS_track$id,day=GPS_track$day), FUN=sum)
+```
+
+
+```{r}
+glimpse(Tracker_GPS)
+glimpse(car_assign2)
+```
+Build a data table named Car_owner to combine info of employee and car driver.
+```{r}
+car_assign2$CarID <- as_factor(car_assign2$CarID)
+Car_owner <- full_join(Tracker_GPS,car_assign2,  by = c("id" ="CarID"))
+
+```
+
+```{r}
+glimpse(loyalty_data)
+glimpse(credit_debit)
+```
 
 
 
 ```{r}
-Tracker_GPS <- GPS_sf %>% group_by(day,id) %>% dplyr::summarise(Daily_Park=sum(park_point))
+
+
+loyalty_data$timestamp <- as.Date(loyalty_data$timestamp, "%m/%d/%Y")
+
+loyalty_data$day <- as.factor(get_day(loyalty_data$timestamp))
+loyalty_people <- 
+aggregate(loyalty_data$count_event, by=list(loyaltynum=loyalty_data$loyaltynum,day=loyalty_data$Day), FUN=sum)
+
 
 ```
+
+```{r}
+credit_debit$last4ccnum <- as.factor(credit_debit$last4ccnum)
+
+```
+
+
+
+```{r}
+credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
+credit_debit$day <- as.factor(get_day(credit_debit$timestamp))
+
+cd_people <- 
+aggregate(credit_debit$count_event, by=list(cdnum=credit_debit$last4ccnum,day=credit_debit$Day), FUN=sum)
+
+```
+
+
