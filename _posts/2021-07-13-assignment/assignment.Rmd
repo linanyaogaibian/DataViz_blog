@@ -83,7 +83,7 @@ aggregate_dataset <- loyalty_data %>%
     dplyr::summarize(Frequency = sum(count_event),Money_loyalty=sum(price))
 
 
-credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
+credit_debit$timestamp <- strptime(credit_debit$timestamp, "%m/%d/%Y %H:%M")
 aggregate_cc <- credit_debit %>% 
     group_by(timestamp,location) %>% 
     dplyr::summarize(Frequency = sum(count_event),Money_cd=sum(price))
@@ -175,11 +175,11 @@ p <- p + theme(axis.text.y = element_text(size = 8))
 
 ggplotly(p, tooltip="text")
 ```
+<font size="2" color="black">*Figure 1 Money difference*</font>
 
 
 
-
-**Heat map of frequency difference**
+**Figure:Heat map of frequency difference**
 
 ```{r,fig.height=6,fig.width=10}
 z <- ggplot(data = Comparison, aes(x=Day, y=location,fill=Freq_dif,text=text2)) + 
@@ -192,6 +192,7 @@ z <- z + theme(axis.text.y = element_text(size = 8))
 
 ggplotly(z, tooltip="text2")
 ```
+<font size="2" color="black">*Figure 2 Frequency difference*</font>
 
 
 
@@ -214,7 +215,7 @@ we can see more anomalies comparing these two heat maps:
 Add the vehicle data to your analysis of the credit and loyalty card data. How does your assessment of the anomalies in question 1 change based on this new data? What discrepancies between vehicle, credit, and loyalty card data do you find? Please limit your answer to 8 images and 500 words.
 
 #### 2.2.1 Data Preparation for Q2
-To proceed in the Q2, we decide to have data manipulation for another two datasets GPS and car_Assignment
+To proceed in the Q2, we decide to have data manipulation for another two datasets GPS and car_Assignment.
 
 **Data Manipulation for car_Assignment data set(Make up full name)**
 
@@ -227,13 +228,13 @@ car_assign2 = subset(car_assignment, select = -c(LastName,FirstName) )
 head(car_assign2)
 ```
 
-**Data Manipulation for GPS data set**
+**Data Manipulation for plot out route map**
 
 ```{r}
 glimpse(GPS)
 ```
 
-First,"MC2-tourist.jpg" is imported for data preparation.
+
 
 ```{r}
 bgmap <- raster("Data/MC2-tourist.tif")
@@ -275,9 +276,6 @@ glimpse(GPS)
 
 ```
 
-### 这一步起应该与老师有所不同 ###
-
-
 
 ```{r}
 GPS_sf <- st_as_sf(GPS, 
@@ -294,7 +292,7 @@ gps_path <- GPS_sf %>%
   st_cast("LINESTRING")
 gps_path
 ```
-
+**Delete Orphan route**
 ```{r} 
 p = npts(gps_path, by_feature = TRUE)
 gps_path2 <- cbind(gps_path, p)
@@ -302,15 +300,7 @@ gps_path2 <- dplyr::filter(gps_path2,p!=1)
 ```
 
 
-
-
-
-
-```{r}
-head(gps_path2)
-head(gps_path)
-```
-
+From Q1, we noticed that Day 13 has a large amount of money difference that reaches 9912.43 in the Fry dos Auto Supply, we want to notice who park their car in Frydos Auto Supply that is possible to buy a vehicle,we create a route map to show that cars whose  ID are 12,13,15,16,20,34 parsed through this place,these car drivers have suspicious.
 ```{r}
 gps_path_selected <- gps_path2 %>%
   group_by(id,day)%>%
@@ -331,7 +321,7 @@ Q3 Can you infer the owners of each credit card and loyalty card? What is your e
 
 **Answer**: To answer Q3's question, we need to build a relationship between credit card & loyalty card owner and car owner. So this relationship connection is based on parking car site and location in the map. We need to find a logical time gap that can be the proof to help real location site to match parking car site.
 
-So first of all, restructure GPS data set and build a box plot to find the appropriate time gap for parking car.
+So first of all, restructure GPS data set to create minute gap and build a box plot to find the appropriate time gap for parking car.
 
 ```{r}
 GPS_track <- GPS_sf %>%
@@ -343,11 +333,14 @@ GPS_track <- GPS_sf %>%
 
 ```
 
+
+
 ```{r}
-GPS_track$diff_mins <- round(GPS_sf$diff_mins ,2)
+GPS_track$diff_mins <- round(GPS_track$diff_mins,2)
 GPS_track <- GPS_track %>%
   mutate_at(vars(diff_mins), ~replace_na(., 0))
 
+GPS_track$hour<- format(GPS_track$Timestamp, format="%H")
 ```
 
 
@@ -363,9 +356,10 @@ ggplotly(boxplot1)
 Since the boxplot shows that more than 3/4 data points of dif_mins column are 0, it is useless for us to have a justification for parking time,but we also find one car's movement is unusual and its time gap is 1058.27min. So we can only assume that data points whose dif_mins >5 are recognized as parking point. Based on this assumption, we build up a new column called parking point.
 
 ```{r}
+
 GPS_track$point <- 0
-GPS_track$point[GPS_sf$diff_mins >5 ] <- 1
-GPS_track$point[GPS_sf$diff_mins <=5 ] <- 0
+GPS_track$point[GPS_track$diff_mins >5 ] <- 1
+GPS_track$point[GPS_track$diff_mins <=5 ] <- 0
 
 
 
@@ -376,9 +370,10 @@ glimpse(GPS_track)
 ```
 *Aggregate the points so that we can know one car driver in one day park its car in how many places?*
 
+
 ```{r}
-Tracker_GPS <- 
-aggregate(GPS_track$point, by=list(id=GPS_track$id,day=GPS_track$day), FUN=sum)
+Tracker_GPS <- aggregate(GPS_track$point, by=list(id=GPS_track$id,day=GPS_track$day,hour=GPS_track$hour), FUN=sum)
+
 ```
 
 
@@ -395,6 +390,9 @@ Car_owner <- full_join(Tracker_GPS,car_assign2,  by = c("id" ="CarID"))
 
 ```{r}
 glimpse(loyalty_data)
+
+credit_debit$hour<- format(credit_debit$timestamp, format="%H")
+
 glimpse(credit_debit)
 ```
 
@@ -406,13 +404,19 @@ glimpse(credit_debit)
 loyalty_data$timestamp <- as.Date(loyalty_data$timestamp, "%m/%d/%Y")
 
 loyalty_data$day <- as.factor(get_day(loyalty_data$timestamp))
-loyalty_people <- 
-aggregate(loyalty_data$count_event, by=list(loyaltynum=loyalty_data$loyaltynum,day=loyalty_data$Day), FUN=sum)
+loyalty_data$loyaltynum <- as.factor(loyalty_data$loyaltynum)
+```
 
+```{r}
+loyalty_people <- 
+aggregate(loyalty_data$count_event, by=list(loyalnum=loyalty_data$loyaltynum,day=loyalty_data$day), FUN=sum)
+
+loyalty_people$loyalnum <- as_factor(loyalty_people$loyalnum)
 
 ```
 
 ```{r}
+
 credit_debit$last4ccnum <- as.factor(credit_debit$last4ccnum)
 
 ```
@@ -420,12 +424,44 @@ credit_debit$last4ccnum <- as.factor(credit_debit$last4ccnum)
 
 
 ```{r}
-credit_debit$timestamp <- as.Date(credit_debit$timestamp, "%m/%d/%Y")
+
 credit_debit$day <- as.factor(get_day(credit_debit$timestamp))
 
+
 cd_people <- 
-aggregate(credit_debit$count_event, by=list(cdnum=credit_debit$last4ccnum,day=credit_debit$Day), FUN=sum)
+aggregate(credit_debit$count_event, by=list(last4cnum=credit_debit$last4ccnum,day=credit_debit$day,hour=credit_debit$hour), FUN=sum)
+
+cd_people$last4cnum <- as_factor(cd_people$last4cnum)
+
+```
+
+```{r}
+glimpse(cd_people)
+glimpse(loyalty_people)
+
+
 
 ```
 
 
+```{r}
+
+
+car_cl<-inner_join(cd_people,Car_owner,by=c("day","x","hour"))
+
+
+
+```
+
+
+
+Q5. Do you see evidence of suspicious activity? Identify1- 10 locations where you believe the suspicious activity is
+occurring,and why Please limit your response to 10 images and 500 words.
+
+
+*First suspicious activity * 
+Day 13 has a large amount of money difference that reaches 9912.43 in the Fry dos Auto Supply,although the number of cost records are the same(4).
+
+![](image/Picture1.png){ width=60% }
+
+*Second suspicious activity * 
