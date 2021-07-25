@@ -347,7 +347,7 @@ GPS_track$hour<- format(GPS_track$Timestamp, format="%H")
 Now we want to justify which time gap is suitable for a parking time period, we build up a box plot based on dif_mins column.
 
 ```{r}
-boxplot1=ggplot(GPS_track,aes(x="",y=GPS_sf$diff_mins))+geom_boxplot()+labs(title="Distribution of time gap")+theme_classic()
+boxplot1=ggplot(GPS_track,aes(x="",y=GPS_track$diff_mins))+geom_boxplot()+labs(title="Distribution of time gap")+theme_classic()
 
 
 ggplotly(boxplot1)
