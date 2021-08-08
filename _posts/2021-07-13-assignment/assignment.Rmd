@@ -29,6 +29,7 @@ knitr::opts_chunk$set(fig.retina = 3,
                       eval = TRUE,
                       message = FALSE,
                       warning = FALSE)
+
 ```
 
 ### 1.2 R Packages Installation
@@ -87,6 +88,7 @@ credit_debit$timestamp <- strptime(credit_debit$timestamp, "%m/%d/%Y %H:%M")
 aggregate_cc <- credit_debit %>% 
     group_by(timestamp,location) %>% 
     dplyr::summarize(Frequency = sum(count_event),Money_cd=sum(price))
+
 
 
 
@@ -221,87 +223,150 @@ Add the vehicle data to your analysis of the credit and loyalty card data. How d
 #### 2.2.1 Data Preparation for Q2
 To proceed in the Q2, we decide to have data manipulation for another two datasets GPS and car_Assignment.
 
-**Data Manipulation for car_Assignment data set(Make up full name)**
+**Data Manipulation for car_Assignment data set and gps data**
 
 ```{r}
-car_assignment <-car_assignment %>% unite("Full Name", LastName:FirstName, remove = FALSE)
+#Make up the full name
+car_assignment1 <-car_assignment %>% unite("Full Name", LastName:FirstName, remove = FALSE)
+car_assignment1 <- subset(car_assignment1, select = -c(LastName,FirstName) )
+car_assignment1$CarID <- as_factor(car_assignment1$CarID)
+```
+
+
+
+```{r}
+#Basic settings for GPS
+#Create (longitude,latitude format)
+GPS$Timestamp <- strptime(GPS$Timestamp, "%m/%d/%Y %H:%M:%S")
+GPS$day <- as.factor(get_day(GPS$Timestamp))
+GPS$id <- as_factor(GPS$id)
+
+
+GPS_sf <- st_as_sf(GPS, 
+                   coords = c("long", "lat"),
+                       crs= 4326)#Create (longitude,latitude) for GPS
+
+#Create gps path
+gps_path <- GPS_sf %>%
+  group_by(id,day) %>%
+  summarize(m = mean(Timestamp), 
+            do_union=FALSE) %>%
+  st_cast("LINESTRING")
+
+
+
+
+
+#Delete Orphan route
+p = npts(gps_path, by_feature = TRUE)
+gps_path2 <- cbind(gps_path, p)
+gps_path2 <- dplyr::filter(gps_path2,p!=1)
+
+
+
 ```
 
 ```{r}
-car_assign2 = subset(car_assignment, select = -c(LastName,FirstName) )
-head(car_assign2)
-```
+#create time delta between points
+GPS_sf1<-GPS_sf %>%
+  dplyr::arrange(day, Timestamp) %>%
+  group_by(id,day) %>%
+  mutate(diff = Timestamp - lag(Timestamp),
+         diff_mins = as.numeric(diff, units = 'mins'))
+#Round to the hundredth place and fill NA
+GPS_sf1$diff_mins <- round(GPS_sf1$diff_mins,2)
 
-**Data Manipulation for plot out route map**
+GPS_sf1 <- GPS_sf1 %>%
+  mutate_at(vars(diff_mins), ~replace_na(., 0))
+
+GPS_sf1 <- subset(GPS_sf1, select = -c(diff) )
+#Set up Stopping points based on assumption
+GPS_sf1$Parking_point<-0
+GPS_sf1$Parking_point[GPS_sf1$diff_mins>=5]<-1
+GPS_sf1$Parking_point[GPS_sf1$diff_mins<5]<-0
+```
 
 ```{r}
-glimpse(GPS)
+#GPS_sf1 left join Car_assignment1
+GPS_ID <-left_join(GPS_sf1, car_assignment1, by = c("id"="CarID"))
+
 ```
+
+
+
+
 
 
 
 ```{r}
 bgmap <- raster("Data/MC2-tourist.tif")
-bgmap
-```
 
-
-
-```{r}
+Abila_st <- st_read(dsn = "Data/Geospatial",
+                    layer = "Abila")
 tm_shape(bgmap) +
 tm_rgb(bgmap, r = 1,g = 2,b = 3,
        alpha = NA,
        saturation = 1,
        interpolate = TRUE,
        max.value = 255)
-```
-
-```{r}
-Abila_st <- st_read(dsn = "Data/Geospatial",
-                    layer = "Abila")
 
 ```
-
 
 
 
 ```{r}
-GPS$Timestamp <- strptime(GPS$Timestamp, "%m/%d/%Y %H:%M:%S")
-GPS$day <- as.factor(get_day(GPS$Timestamp))
 
+
+#filter out those points where person stay for more than 5 minutes.
+GPS_filter <- GPS_ID %>%
+  filter(Parking_point > 0)
+
+#filter out 
+GPS_filter$stayperiod<-"Short(0~6)"
+GPS_filter$stayperiod[GPS_filter$diff_mins>=360]<-"Long(6+)"
+GPS_filter$stayperiod[GPS_filter$diff_mins<360]<-"Short(0~6)"
+
+GPS_home <- GPS_filter %>%
+  filter(stayperiod=="Long(6+)")
+
+GPS_park <- GPS_filter %>%
+  filter(stayperiod=="Short(0~6)")
+
+# plot scatter graph in map to find short-time parking locations in the map
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_park) +
+  tm_dots(col="black")+
+
+# plot scatter graph in map to find long-time parking locations in the map
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_home) +
+  tm_dots(col="red",size=0.08)
 ```
 
-```{r}
-GPS$id <- as_factor(GPS$id)
-```
-
-```{r}
-glimpse(GPS)
-
-```
 
 
-```{r}
-GPS_sf <- st_as_sf(GPS, 
-                   coords = c("long", "lat"),
-                       crs= 4326)
-GPS_sf
-```
 
-```{r}
-gps_path <- GPS_sf %>%
-  group_by(id,day) %>%
-  summarize(m = mean(Timestamp), 
-            do_union=FALSE) %>%
-  st_cast("LINESTRING")
-gps_path
-```
-**Delete Orphan route**
-```{r} 
-p = npts(gps_path, by_feature = TRUE)
-gps_path2 <- cbind(gps_path, p)
-gps_path2 <- dplyr::filter(gps_path2,p!=1)
-```
+
+
+
+
+
+
+
+
+
 
 
 From Q1, we noticed that Day 13 has a large amount of money difference that reaches 9912.43 in the Fry dos Auto Supply, we want to notice who park their car in Frydos Auto Supply that is possible to buy a vehicle,we create a route map to show that cars whose  ID are 12,13,15,16,20,34 parsed through this place,these car drivers have suspicious.

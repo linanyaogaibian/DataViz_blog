@@ -1,0 +1,18 @@
+---
+title: "Class14"
+author: "linan"
+date: "8/7/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+library(rsconnect)
+It's the logical operator for negation. For example, "!(5>1)" returns FALSE while "!(1>5)" returns TRUE.
+
+Negation is useful for complex logical formulations where it's often easier to express a complicated truth and just negate it, thus producing the logical equivalent to an even more complicated inverse.
+
