@@ -38,7 +38,7 @@ The following code input is to prepare for R Packages Installation.
 
 ```{r}
 # !diagnostics off
-packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap','mapview')
+packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','hrbrthemes','tmap','mapview','geosphere','rgdal','sp','sf')
 for(p in packages){
   if(!require(p, character.only = T)){
     install.packages(p)
@@ -245,7 +245,9 @@ GPS$id <- as_factor(GPS$id)
 GPS_sf <- st_as_sf(GPS, 
                    coords = c("long", "lat"),
                        crs= 4326)#Create (longitude,latitude) for GPS
+```
 
+```{r}
 #Create gps path
 gps_path <- GPS_sf %>%
   group_by(id,day) %>%
@@ -262,9 +264,16 @@ p = npts(gps_path, by_feature = TRUE)
 gps_path2 <- cbind(gps_path, p)
 gps_path2 <- dplyr::filter(gps_path2,p!=1)
 
+```
+
+```{r}
+glimpse(gps_path)
 
 
 ```
+
+
+
 
 ```{r}
 #create time delta between points
@@ -331,7 +340,72 @@ GPS_home <- GPS_filter %>%
 
 GPS_park <- GPS_filter %>%
   filter(stayperiod=="Short(0~6)")
+```
 
+```{r}
+# convert data to a SpatialPointsDataFrame object
+
+xy <- SpatialPointsDataFrame(
+      as(GPS_filter$geometry,"Spatial"),data.frame(ID=seq(1:length(GPS_filter$geometry))))
+
+# use the distm function to generate a geodesic distance matrix in meters
+mdist <- distm(xy)
+
+# cluster all points using a hierarchical clustering approach
+hc <- hclust(as.dist(mdist), method="complete")
+
+# define the distance threshold, in this case 60 m
+d=100
+
+# define clusters based on a tree "height" cutoff "d" and add them to the SpDataFrame
+xy$clust <- cutree(hc, h=d)
+# transfer back to normal dataframe
+DF <- st_as_sf(xy)
+
+
+```
+
+```{r}
+GPS_filter$NO<-DF$ID
+GPS_filter$clust<-DF$clust
+
+
+
+
+```
+
+
+
+
+
+
+```{r}
+# separate longitude and latitude
+ll <- unlist(GPS_filter$geometry)
+long <- ll[seq(1,length(ll),2)]
+lat <- ll[-seq(1,length(ll),2)]
+GPS_filter$longitude<-long
+GPS_filter$latitude<-lat
+
+DF_median <- GPS_filter %>% 
+  group_by(clust) %>%
+    summarise(Mean = mean(diff_mins, na.rm=TRUE),latitude.median = median(latitude), longitude.median = median(longitude), .groups = "drop") %>%
+  ungroup()
+
+#Delete geometry
+DF_median <-as.data.frame(DF_median)
+DF_median <-subset(DF_median, select = -c(geometry) )
+```
+
+
+```{r}
+DF_median<- st_as_sf(DF_median, 
+                   coords = c("longitude.median", "latitude.median"),
+                       crs= 4326)
+
+```
+
+```{r}
 # plot scatter graph in map to find short-time parking locations in the map
 tmap_mode("view")
 tm_shape(bgmap) + 
@@ -341,7 +415,7 @@ tm_shape(bgmap) +
        interpolate = TRUE,
        max.value = 255) +
   tm_shape(GPS_park) +
-  tm_dots(col="black")+
+  tm_dots(col="black")
 
 # plot scatter graph in map to find long-time parking locations in the map
 tmap_mode("view")
@@ -355,11 +429,17 @@ tm_shape(bgmap) +
   tm_dots(col="red",size=0.08)
 ```
 
-
-
-
-
-
+```{r}
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(DF_median) +
+  tm_dots(col="yellow")
+```
 
 
 
@@ -375,7 +455,7 @@ From Q1, we noticed that Day 13 has a large amount of money difference that reac
 ```{r}
 gps_path_selected <- gps_path2 %>%
   group_by(id,day)%>%
-  filter(day==13
+  filter(id==1,day==14
          )
 tmap_mode("view")
 tm_shape(bgmap) + 
@@ -385,35 +465,23 @@ tm_shape(bgmap) +
        interpolate = TRUE,
        max.value = 255) +
   tm_shape(gps_path_selected) +
-  tm_lines()
+  tm_lines()+
+  tm_shape(DF_median) +
+  tm_dots(col="yellow")+  tm_shape(GPS_home) +
+  tm_dots(col="red")
 ```
 
 Q3 Can you infer the owners of each credit card and loyalty card? What is your evidence? Where are there uncertainties in your method? Where are there uncertainties in the data? Please limit your answer to 8 images and 500 words.
 
 **Answer**: To answer Q3's question, we need to build a relationship between credit card & loyalty card owner and car owner. So this relationship connection is based on parking car site and location in the map. We need to find a logical time gap that can be the proof to help real location site to match parking car site.
 
-So first of all, restructure GPS data set to create minute gap and build a box plot to find the appropriate time gap for parking car.
-
-```{r}
-GPS_track <- GPS_sf %>%
-  dplyr::arrange(day, Timestamp) %>%
-  group_by(id,day) %>%
-  mutate(diff = Timestamp - lag(Timestamp),
-         diff_mins = as.numeric(diff, units = 'mins'))
-
-
-```
-
+So first of all, restructure loyalty_data and credit data and join them to a new data frame.
 
 
 ```{r}
-GPS_track$diff_mins <- round(GPS_track$diff_mins,2)
-GPS_track <- GPS_track %>%
-  mutate_at(vars(diff_mins), ~replace_na(., 0))
-
-GPS_track$hour<- format(GPS_track$Timestamp, format="%H")
+credit_loyal<-
+inner_join(credit_debit, loyalty_data, by = c("location" = "firstname", "lastname" = "lastname"))
 ```
-
 
 Now we want to justify which time gap is suitable for a parking time period, we build up a box plot based on dif_mins column.
 
