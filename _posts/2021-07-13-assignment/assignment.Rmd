@@ -343,6 +343,43 @@ GPS_park <- GPS_filter %>%
 ```
 
 ```{r}
+# plot scatter graph in map to find short-time parking locations in the map
+gps_path_selected <- gps_path2 %>%
+  group_by(id,day)%>%
+  filter(id==1,day==14
+         )
+GPS_filter_day14_id1<-GPS_filter %>%
+  group_by(id,day)%>%
+  filter(id==1,day==14
+         )
+
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_filter_day14_id1) +
+  tm_dots(col="black",size=0.08)+
+  tm_shape(gps_path_selected)+
+  tm_lines(col="red")
+
+# plot scatter graph in map to find long-time parking locations in the map
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_home) +
+  tm_dots(col="red",size=0.08)
+```
+
+
+
+```{r}
 # convert data to a SpatialPointsDataFrame object
 
 xy <- SpatialPointsDataFrame(
@@ -405,29 +442,7 @@ DF_median<- st_as_sf(DF_median,
 
 ```
 
-```{r}
-# plot scatter graph in map to find short-time parking locations in the map
-tmap_mode("view")
-tm_shape(bgmap) + 
-  tm_rgb(bgmap, r = 1,g = 2,b = 3,
-       alpha = NA,
-       saturation = 1,
-       interpolate = TRUE,
-       max.value = 255) +
-  tm_shape(GPS_park) +
-  tm_dots(col="black")
 
-# plot scatter graph in map to find long-time parking locations in the map
-tmap_mode("view")
-tm_shape(bgmap) + 
-  tm_rgb(bgmap, r = 1,g = 2,b = 3,
-       alpha = NA,
-       saturation = 1,
-       interpolate = TRUE,
-       max.value = 255) +
-  tm_shape(GPS_home) +
-  tm_dots(col="red",size=0.08)
-```
 
 ```{r}
 tmap_mode("view")

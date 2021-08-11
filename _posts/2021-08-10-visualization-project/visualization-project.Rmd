@@ -1,0 +1,337 @@
+---
+title: "Visualization project"
+description: |
+  A short description of the post.
+author:
+  - name: LI NAN
+    url: https://www.linkedin.com/in/li-nan-63b9251a6/
+date: 08-10-2021
+output:
+  distill::distill_article:
+    self_contained: false
+---
+
+
+### 1.1 Global Settings
+
+The global settings of R code chunks in this post is set as follows. 
+
+```{r setup, include=FALSE}
+options(htmltools.dir.version = FALSE)
+knitr::opts_chunk$set(fig.retina = 3,
+                      echo = TRUE,
+                      eval = TRUE,
+                      message = FALSE,
+                      warning = FALSE)
+
+```
+
+### 1.2 R Packages Installation
+
+The following code input is to prepare for R Packages Installation.
+
+```{r}
+# !diagnostics off
+packages = c('raster','sf','tmap', 'clock','DT', 'ggiraph', 'plotly', 'tidyverse','dplyr','readr','tmap','mapview','geosphere','rgdal','sp','stringdist','fuzzyjoin')
+for(p in packages){
+  if(!require(p, character.only = T)){
+    install.packages(p)
+  }
+  library(p, character.only = T)
+}
+```
+
+
+The following code is to import raw data sets from [<font size="3"  color="blue">*Mini Challenge2*</font>](https://vast-challenge.github.io/2021/MC2.html)("*car-assignment.csv*","*cc_data.csv*","*gps.csv*","*loyalty_data.csv*").
+
+```{r}
+credit_debit <- read_csv("data/cc_data.csv")
+loyalty_data <- read_csv("data/loyalty_data.csv")
+car_assignment <- read_csv("data/car_assignments.csv")
+GPS <- read_csv("data/gps.csv")
+
+```
+
+### 2.2 Q2 Intruoduction
+Add the vehicle data to your analysis of the credit and loyalty card data. How does your assessment of the anomalies in question 1 change based on this new data? What discrepancies between vehicle, credit, and loyalty card data do you find? Please limit your answer to 8 images and 500 words.
+
+#### 2.2.1 Data Preparation for Q2
+To proceed in the Q2, we decide to have data manipulation for another two datasets GPS and car_Assignment.
+
+**Data Manipulation for car_Assignment data set and gps data**
+
+```{r}
+#Make up the full name
+car_assignment1 <-car_assignment %>% unite("Full Name", LastName:FirstName, remove = FALSE)
+car_assignment1 <- subset(car_assignment1, select = -c(LastName,FirstName) )
+car_assignment1$CarID <- as_factor(car_assignment1$CarID)
+```
+
+
+
+```{r}
+#Basic settings for GPS
+#Create (longitude,latitude format)
+GPS$Timestamp <- strptime(GPS$Timestamp, "%m/%d/%Y %H:%M:%S")
+GPS$day <- as.factor(get_day(GPS$Timestamp))
+GPS$id <- as_factor(GPS$id)
+
+
+GPS_sf <- st_as_sf(GPS, 
+                   coords = c("long", "lat"),
+                       crs= 4326)#Create (longitude,latitude) for GPS
+```
+
+```{r}
+#Create gps path
+gps_path <- GPS_sf %>%
+  group_by(id,day) %>%
+  summarize(m = mean(Timestamp), 
+            do_union=FALSE) %>%
+  st_cast("LINESTRING")
+
+
+
+
+
+#Delete Orphan route
+p = npts(gps_path, by_feature = TRUE)
+gps_path2 <- cbind(gps_path, p)
+gps_path2 <- dplyr::filter(gps_path2,p!=1)
+
+```
+
+```{r}
+glimpse(gps_path)
+
+
+```
+
+
+
+
+```{r}
+#create time delta between points
+GPS_sf1<-GPS_sf %>%
+  dplyr::arrange(day, Timestamp) %>%
+  group_by(id,day) %>%
+  mutate(diff = Timestamp - lag(Timestamp),
+         diff_mins = as.numeric(diff, units = 'mins'))
+#Round to the hundredth place and fill NA
+GPS_sf1$diff_mins <- round(GPS_sf1$diff_mins,2)
+
+GPS_sf1 <- GPS_sf1 %>%
+  mutate_at(vars(diff_mins), ~replace_na(., 0))
+
+GPS_sf1 <- subset(GPS_sf1, select = -c(diff) )
+#Set up Stopping points based on assumption
+GPS_sf1$Parking_point<-0
+GPS_sf1$Parking_point[GPS_sf1$diff_mins>=5]<-1
+GPS_sf1$Parking_point[GPS_sf1$diff_mins<5]<-0
+```
+
+```{r}
+#GPS_sf1 left join Car_assignment1
+GPS_ID <-left_join(GPS_sf1, car_assignment1, by = c("id"="CarID"))
+
+```
+
+
+
+
+
+
+
+```{r}
+bgmap <- raster("Data/MC2-tourist.tif")
+
+Abila_st <- st_read(dsn = "Data/Geospatial",
+                    layer = "Abila")
+tm_shape(bgmap) +
+tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255)
+
+```
+
+
+
+```{r}
+
+
+#filter out those points where person stay for more than 5 minutes.
+GPS_filter <- GPS_ID %>%
+  filter(Parking_point > 0)
+
+#filter out 
+GPS_filter$stayperiod<-"Short(0~6)"
+GPS_filter$stayperiod[GPS_filter$diff_mins>=360]<-"Long(6+)"
+GPS_filter$stayperiod[GPS_filter$diff_mins<360]<-"Short(0~6)"
+
+GPS_home <- GPS_filter %>%
+  filter(stayperiod=="Long(6+)")
+
+GPS_park <- GPS_filter %>%
+  filter(stayperiod=="Short(0~6)")
+```
+
+```{r}
+# plot scatter graph in map to find short-time parking locations in the map
+gps_path_selected <- gps_path2 %>%
+  group_by(id,day)%>%
+  filter(id==1,day==14
+         )
+GPS_filter_day14_id1<-GPS_filter %>%
+  group_by(id,day)%>%
+  filter(id==1,day==14
+         )
+
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_filter_day14_id1) +
+  tm_dots(col="black",size=0.08)+
+  tm_shape(gps_path_selected)+
+  tm_lines(col="red")
+
+# plot scatter graph in map to find long-time parking locations in the map
+tmap_mode("view")
+tm_shape(bgmap) + 
+  tm_rgb(bgmap, r = 1,g = 2,b = 3,
+       alpha = NA,
+       saturation = 1,
+       interpolate = TRUE,
+       max.value = 255) +
+  tm_shape(GPS_home) +
+  tm_dots(col="red",size=0.08)
+```
+
+
+
+### Transaction data Manipulation
+
+```{r}
+loyalty_data$timestamp <- as.Date(loyalty_data$timestamp, "%m/%d/%Y")
+loyalty_data$Day <- format(loyalty_data$timestamp, format="%d")
+
+```
+
+```{r}
+credit_debit[grep("Katerina", credit_debit$location),2]<- "Katerina's Cafe" 
+loyalty_data[grep("Katerina", loyalty_data$location),2]<- "Katerina's Cafe" 
+glimpse(credit_debit)
+
+```
+
+
+```{r}
+credit_debit$timestamp <- strptime(credit_debit$timestamp, "%m/%d/%Y %H:%M")
+credit_debit$Day <- format(credit_debit$timestamp, format="%d")
+credit_debit$hour <- format(credit_debit$timestamp, format="%H")
+```
+
+
+
+```{r}
+# full join and count frequency
+cc_loyal <- full_join(credit_debit,loyalty_data,by = c("Day", "location", "price")) %>%
+  group_by(last4ccnum, loyaltynum) 
+
+```
+
+
+```{r}
+#delete duplicate column
+cc_loyal <- subset(cc_loyal, select = -c(timestamp.y) )
+
+
+```
+
+
+```{r}
+# inner join and count frequency and regard count>1 is mistake
+cc_loyal2 <- inner_join(credit_debit,loyalty_data,by = c("Day", "location", "price")) %>%
+  group_by(last4ccnum, loyaltynum) %>%
+  summarise(count = n())  %>%
+  filter(count>1) 
+```
+
+```{r}
+#delete loyaltnum column
+cc_loyal <- subset(cc_loyal, select = -c(loyaltynum) )
+
+
+```
+
+
+
+```{r}
+glimpse(cc_loyal2)
+cc_loyal2 <- subset(cc_loyal2, select = -c(count) )
+
+```
+
+```{r}
+"change duplicate by combining loyalt num"
+cc_loyal2$loyaltynum[1] <- "L3572/L3288"
+cc_loyal2$loyaltynum[2] <- "L3572/L3288"
+
+```
+
+```{r}
+#delete loyaltnum
+#cc_loyal2 =cc_loyal2[-1,]
+
+```
+
+
+```{r}
+#full join cc_loyal2 and credit_debit data frame
+cc_loyal3 <- full_join(cc_loyal2,credit_debit,by = "last4ccnum") 
+
+
+names(cc_loyal3)[names(cc_loyal3) == "price"] <- "cc_price"
+
+#cc_loyal3 <- subset(cc_loyal3, select = -c(count) )!!!!!!!!!
+```
+
+
+
+
+
+```{r}
+
+#有问题，一个人一天去一个地方进行多次消费无法精确匹配
+loyalty_data1 <- loyalty_data
+
+loyalty_data1$loyaltynum[loyalty_data$loyaltynum=="L3572"] <- "L3572/L3288"
+loyalty_data1$loyaltynum[loyalty_data$loyaltynum=="L3288"] <- "L3572/L3288"
+
+
+loyalty_data1 <- full_join(cc_loyal2,loyalty_data1,by = "loyaltynum") 
+Transaction <- left_join(cc_loyal3,loyalty_data1,by = c("loyaltynum","Day","location","last4ccnum")) 
+
+
+```
+
+
+
+
+
+
+```{r}
+datatable(cc_loyal3 ,rownames = FALSE)
+```
+
+
+
+
+
+
+
